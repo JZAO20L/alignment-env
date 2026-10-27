@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# 环境与运行
+.env
+*.log
+traces/
+/tmp_*.jsonl
+
+# 工具缓存
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+uv.lock.swp
+
+# 编辑器
+.DS_Store
+.idea/
+.vscode/
