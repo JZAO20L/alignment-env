@@ -39,6 +39,23 @@ OpenEnv 已提供：FastAPI + WebSocket 服务端、`EnvClient`（同步/异步�
 ### 3.4 与 evolving-harness 的关系
 本环境是"自进化"主题的另一面：evolving-harness 自进化 skills，本环境自进化攻击库。同源不同物，独立 repo。论文叙事："自进化一题两表"。
 
+### 3.5 模型层（先于攻击方法落地）
+做攻击方法前把模型地基做好（`models/` 包，供 env 与训练共用）。三个模型角色：
+
+| 角色 | 默认 ModelScope id | trainable | 说明 |
+|---|---|---|---|
+| guard（评估/奖励） | `Qwen/Qwen3Guard-Gen-4B` | 否 | 冻结，判攻破 → reward |
+| attack（攻击） | `Qwen/Qwen3-4B` | 否 | 冻结，生成红队攻击 |
+| defense（防御/受害者） | `Qwen/Qwen3-4B`（用户可改） | **是** | 待训练对象；env 里的 "target" |
+
+- 语义：guard 与 attack 固定（注入的评估/攻击模型），defense 是唯一被训练、且由用户指定的角色。
+- 下载走 ModelScope（`modelscope snapshot_download`），断点续传；完成判定沿用 jailbreak：`config.json` 存在且无 `*.incomplete`。
+- 缓存默认 `~/.cache/alignment-env/models`，`ALIGN_MODEL_DIR` 覆盖（byted 可指向现有 `/mnt/.../models` 复用已下载模型）。
+- `ModelProvider` 两后端：`mock`（离线可部署）与 `openai`（vLLM endpoint）。`build_all(config)` 装配三角色 provider。
+- 覆盖优先级：环境变量（`ALIGN_<ROLE>_MODEL` / `_BACKEND` / `_BASE_URL`）> `models.yaml` > 默认。
+
+**env 与模型的映射**：env 内 `red → attack provider`，`target(受害者) → defense provider`，`reward → guard provider`。attack 方法(T1.2+)在此之上实现，不再耦合某具体模型。
+
 ## 4. 已核对的真实接口（OpenEnv 0.10.0）
 
 | 我最初的猜测 | OpenEnv 实际 |

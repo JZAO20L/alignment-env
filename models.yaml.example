@@ -1,0 +1,12 @@
+# alignment-env 模型配置示例
+# 复制为 models.yaml 后编辑；defense 是可训练角色，改成你想训的模型。
+# 也可用环境变量覆盖任意角色：ALIGN_<ROLE>_MODEL=<modelscope id>
+guard:
+  model: Qwen/Qwen3Guard-Gen-4B      # 评估/奖励来源，冻结
+  trainable: false
+attack:
+  model: Qwen/Qwen3-4B               # 红队攻击生成，冻结
+  trainable: false
+defense:
+  model: Qwen/Qwen3-4B               # 防御/受害者，待训练，用户可改
+  trainable: true

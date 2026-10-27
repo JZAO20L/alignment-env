@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "alignment-env"
+version = "0.1.0"
+description = "OpenEnv-based red-blue model-alignment attack-defense training environment"
+requires-python = ">=3.10"
+dependencies = [
+    "openenv>=0.10.0",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "typer>=0.9",
+    "modelscope>=1.0",
+    "openai>=1.0",
+]
+
+[project.optional-dependencies]
+ui = ["gradio>=4"]
+
+[project.scripts]
+alignment-env = "cli.main:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["models", "cli"]
