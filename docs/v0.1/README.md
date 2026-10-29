@@ -34,4 +34,5 @@ v0.1 交付一个自包含、可部署的红蓝攻防对齐环境：
 - DESIGN·架构（Step1/Step2 + transport-free 核心 + 四壳）：[DESIGN_architecture.md](DESIGN_architecture.md)
 - DESIGN·可观测层（trace 泵 + 聚合 + 面板）：[DESIGN_observability.md](DESIGN_observability.md)
 - TODO：[TODO_v0.1.md](TODO_v0.1.md)
-- COOKBOOK/REPORT：随里程碑落地后补。
+- COOKBOOK（首次上手 + 代理地雷 + 命令速查）：[COOKBOOK_v0.1.md](COOKBOOK_v0.1.md)
+- REPORT（M1–M4 实现记录 + 自进化实测数字）：[REPORT_v0.1.md](REPORT_v0.1.md)

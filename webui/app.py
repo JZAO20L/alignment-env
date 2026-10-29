@@ -18,6 +18,8 @@ import gradio as gr
 from models.config import load_models
 from models.factory import build_all
 from envs.red_blue_env.core import AlignmentEnvironment, AttackAction
+from envs.red_blue_env.redteam import demo_target_guard, run_evolution
+from envs.red_blue_env.scenarios import build_scenario_bank
 from obs import FileTraceSink, aggregate, read_traces
 
 DEFAULT_TRACE = Path(os.getenv("ALIGN_TRACE", "output/webui_trace.jsonl"))
@@ -83,6 +85,21 @@ def _stats() -> tuple[str, list[list]]:
     return header, rows
 
 
+def _evolve(gens: int) -> tuple[str, list[list]]:
+    """自进化红队：跑 N 世代，返回 (汇总串, 每世代明细表)。用纯净组件展示，
+    不引 plotly/绘图重依赖（byted 代理机会崩那些 import）。"""
+    guard, target = demo_target_guard()
+    env = AlignmentEnvironment(guard=guard, target=target, max_turns=3,
+                               scenarios=build_scenario_bank(50))
+    report = run_evolution(env, generations=gens, seed=0)
+    rates = [r["hit_rate"] for r in report]
+    head = (f"**攻破率随世代上升:** {' → '.join(f'{x*100:.0f}%' for x in rates)}"
+            f"（{rates[0]*100:.0f}% → {rates[-1]*100:.0f}%）")
+    rows = [[r["gen"], f"{r['hit_rate'] * 100:.1f}%", r["alive_hit"], r["avg_fitness"],
+             r["best"][:28]] for r in report]
+    return head, rows
+
+
 def main() -> object:
     with gr.Blocks(title="alignment-env · 红蓝攻防演练") as demo:
         gr.Markdown("# alignment-env — 红蓝攻防对齐环境")
@@ -111,6 +128,18 @@ def main() -> object:
                 )
                 timer = gr.Timer(value=5)
                 timer.tick(_stats, outputs=[summary, grid])
+
+            with gr.Tab("自进化红队"):
+                gr.Markdown("攻击种群逐世代演化，攻破率（victim 泄露判攻破）应随世代上升。"
+                            "点击「跑演化」进程内跑一次（mock leak-aware，离线可干跑）。")
+                gens_in = gr.Slider(3, 20, value=8, step=1, label="世代数")
+                evo_btn = gr.Button("跑演化")
+                curve_out = gr.Markdown("—")
+                grid2 = gr.Dataframe(
+                    headers=["gen", "攻破率", "种群命中", "avg_fitness", "代表性攻击"],
+                    datatype=["number", "str", "number", "number", "str"], interactive=False,
+                )
+                evo_btn.click(_evolve, [gens_in], [curve_out, grid2])
 
     demo.launch(server_name=os.getenv("ALIGN_WEBUI_HOST", "127.0.0.1"),
                 server_port=int(os.getenv("ALIGN_WEBUI_PORT", "7860")))

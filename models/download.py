@@ -51,11 +51,19 @@ def download_model(
         ) from e
 
     cache_dir.mkdir(parents=True, exist_ok=True)
-    snapshot_download(
-        spec.model,
-        local_dir=str(dest),
-        resume_download=True,
-    )
+    # 断点续传：modelscope snapshot_download 的续传参数因版本而异
+    # （新版无 resume_download，改按缺省行为 + 本轮 is_downloaded 判定）
+    kwargs: dict = {"local_dir": str(dest)}
+    try:
+        snapshot_download(spec.model, **kwargs)
+    except TypeError:
+        import inspect
+        sig = inspect.signature(snapshot_download)
+        if any("resume_download" in p for p in sig.parameters):
+            kwargs["resume_download"] = True
+            snapshot_download(spec.model, **kwargs)
+        else:
+            raise
     if not is_downloaded(dest):
         raise RuntimeError(f"下载后校验未过：{dest}")
     return dest

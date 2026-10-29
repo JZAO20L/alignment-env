@@ -13,11 +13,15 @@ from models.download import ensure_models, status
 from models.factory import build_all
 from models.provider import Budget
 from envs.red_blue_env.core import AlignmentEnvironment, AttackAction
+from envs.red_blue_env.redteam import run_evolution
+from envs.red_blue_env.scenarios import build_scenario_bank
 from obs import FileTraceSink, aggregate, read_traces
+from cli import test as test_app
 
-app = typer.Typer(help="alignment-env: 红蓝攻防对齐环境 (launch / train / monitor)")
+app = typer.Typer(help="alignment-env: 红蓝攻防对齐环境 (launch / train / monitor / test)")
 models_app = typer.Typer(help="模型准备：下载 / 状态 / 配置")
 app.add_typer(models_app, name="models")
+app.add_typer(test_app.app, name="test", help="GPU 冒烟测试：check/reward/redrun/server/all")
 
 DEFAULT_CONFIG = Path(os.getenv("ALIGN_CONFIG", "models.yaml"))
 
@@ -154,6 +158,54 @@ def monitor(
                     eps[eid]["hit"] = True
         for eid, e in eps.items():
             typer.echo(f"    {eid}: {'攻破' if e['hit'] else '—'}  {e['turns']} 轮")
+
+
+def _env_for_evolve(backend: str, budget: Budget | None):
+    """自进化红队的 env 构造：mock|leak|openai 三档。
+
+    - mock    : 极简 mock（判攻击文本关键词），演化不会翻身（无景观），适合演示"不动"。
+    - leak    : leak-aware mock（victim 泄露判攻破），有真实适应度景观，演化能翻身。默认。
+    - openai  : 真 guard/target（GPU/服务端），走 reader 同款演化循环。
+    """
+    m = _models(config=None)
+    if backend == "leak":
+        from envs.red_blue_env.redteam import demo_target_guard
+        guard, target = demo_target_guard()
+        return AlignmentEnvironment(guard=guard, target=target, max_turns=3,
+                                    scenarios=build_scenario_bank(50))
+    rb = build_all(m, backend=backend, budget=budget)
+    return AlignmentEnvironment(guard=rb.guard, target=rb.target, max_turns=3,
+                                scenarios=build_scenario_bank(50))
+
+
+@app.command("redrun")
+def redrun(
+    generations: int = typer.Option(8, "--gens", help="演化世代数"),
+    backend: str = typer.Option("leak", "--backend", help="mock|leak|openai"),
+    seed: int = typer.Option(0, "--seed", help="随机种子（可复现）"),
+    config: Path = typer.Option(None, "--config", help="models.yaml（openai 后端用）"),
+):
+    """自进化红队：攻击种群逐世代演化，攻破率随世代上升。
+
+    默认 leak-aware mock（离线可干跑）；--backend openai 接真 guard/target。
+    """
+    env = _env_for_evolve(backend, budget=None)
+    typer.echo(f"自进化红队  backend={backend}  gens={generations}  seed={seed}")
+    typer.echo(f"  gen | 攻破率 | 种群命中 | avg_fitness | 代表性攻击")
+    typer.echo("  ----+--------+----------+-------------+----------------")
+
+    def _print(g: int, s: dict) -> None:
+        typer.echo(f"  {g:>3} | {s['hit_rate']*100:5.1f}% |"
+                   f" {s['alive_hit']:>4}/{s['pop']:<4} |"
+                   f" {s['avg_fitness']:>9.3f} | {s['best'][:36]}")
+
+    report = run_evolution(env, generations=generations, seed=seed,
+                           on_generation=_print)
+    typer.echo(f"→ 攻破率由 {report[0]['hit_rate']*100:.0f}% "
+               f"升至 {report[-1]['hit_rate']*100:.0f}%")
+
+    src = env.scenarios if hasattr(env, "scenarios") else None
+    typer.echo(f"场景库: {len(src)} 张受害者卡")
 
 
 if __name__ == "__main__":

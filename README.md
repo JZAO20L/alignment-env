@@ -57,6 +57,10 @@ E python -m webui.app
 # ③ C/S 服务 —— curl 演示
 E python -m server.app &                        # 默认 127.0.0.1:8100
 curl -s --noproxy '*' -X POST 127.0.0.1:8100/reset -H 'Content-Type: application/json' -d '{}'
+
+# GPU 冒烟 —— 带 GPU 机器上一键自检 alignment-env 可用性（自拉起 3 个 vLLM + 跑测 + 回收）
+#   无需 GPU 则可先跑 mock 降级：E python -m cli.main test all
+bash scripts/gpu_smoke.sh
 ```
 
 ## Layout
