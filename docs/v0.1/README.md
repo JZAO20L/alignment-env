@@ -31,5 +31,7 @@ v0.1 交付一个自包含、可部署的红蓝攻防对齐环境：
 ## 索引
 
 - DESIGN：[DESIGN_v0.1_red_blue_env.md](DESIGN_v0.1_red_blue_env.md)
+- DESIGN·架构（Step1/Step2 + transport-free 核心 + 四壳）：[DESIGN_architecture.md](DESIGN_architecture.md)
+- DESIGN·可观测层（trace 泵 + 聚合 + 面板）：[DESIGN_observability.md](DESIGN_observability.md)
 - TODO：[TODO_v0.1.md](TODO_v0.1.md)
 - COOKBOOK/REPORT：随里程碑落地后补。

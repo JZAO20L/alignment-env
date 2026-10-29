@@ -39,22 +39,25 @@ OpenEnv 已提供：FastAPI + WebSocket 服务端、`EnvClient`（同步/异步�
 ### 3.4 与 evolving-harness 的关系
 本环境是"自进化"主题的另一面：evolving-harness 自进化 skills，本环境自进化攻击库。同源不同物，独立 repo。论文叙事："自进化一题两表"。
 
-### 3.5 模型层（先于攻击方法落地）
-做攻击方法前把模型地基做好（`models/` 包，供 env 与训练共用）。三个模型角色：
+### 3.5 模型层（核心两个接口族，先于攻击方法落地）
+做攻击方法前把模型地基做好（`models/` 包，供 env 与训练共用）。模型层分**两个接口族**（不是三个平级角色）：
 
-| 角色 | 默认 ModelScope id | trainable | 说明 |
-|---|---|---|---|
-| guard（评估/奖励） | `Qwen/Qwen3Guard-Gen-4B` | 否 | 冻结，判攻破 → reward |
-| attack（攻击） | `Qwen/Qwen3-4B` | 否 | 冻结，生成红队攻击 |
-| defense（防御/受害者） | `Qwen/Qwen3-4B`（用户可改） | **是** | 待训练对象；env 里的 "target" |
+| 接口族 | 角色 | 接口 | 默认 | 固定性/可插拔 |
+|---|---|---|---|---|
+| **Verifier(Judge)** | **guard** | 验证+给分：输入对话/回复 → verdict + scalar reward | `Qwen/Qwen3Guard-Gen-4B` | **固定**，全 env 的 verify/reward 主力 |
+| **LLMBackend** | **target(blue/受害者)** · **policy(red/攻击方)** | 生成：messages → text | `Qwen/Qwen3-4B` | **可插拔，允许多后端** |
 
-- 语义：guard 与 attack 固定（注入的评估/攻击模型），defense 是唯一被训练、且由用户指定的角色。
-- 下载走 ModelScope（`modelscope snapshot_download`），断点续传；完成判定沿用 jailbreak：`config.json` 存在且无 `*.incomplete`。
-- 缓存默认 `~/.cache/alignment-env/models`，`ALIGN_MODEL_DIR` 覆盖（byted 可指向现有 `/mnt/.../models` 复用已下载模型）。
-- `ModelProvider` 两后端：`mock`（离线可部署）与 `openai`（vLLM endpoint）。`build_all(config)` 装配三角色 provider。
-- 覆盖优先级：环境变量（`ALIGN_<ROLE>_MODEL` / `_BACKEND` / `_BASE_URL`）> `models.yaml` > 默认。
+关键点：
 
-**env 与模型的映射**：env 内 `red → attack provider`，`target(受害者) → defense provider`，`reward → guard provider`。attack 方法(T1.2+)在此之上实现，不再耦合某具体模型。
+- **guard 语义=验证方**，走独立 `Verifier` 接口（判攻破 → reward），**固定、单一后端**。改判据改注入的判罚规则，不换模型族。
+- **target(blue) 与 policy(red) 同属 `LLMBackend` 生成族**，允许多后端接入：**OpenAI 兼容（vLLM / sglang / DeepSeek / Qwen）**、**其他厂商（Anthropic / Vertex …）**、**自托管 vLLM/sglang** 部署模型。
+- `LLMBackend` 带**跨后端强制中间件**，包裹在 env 与裸 SDK 之间：
+  - **指数退避重试**：429 / 超时 / 瞬态错误自动退避重试；
+  - **预算管理**：token / 步数 / 成本上限，超限即终止当前 episode（防失控）。
+- **trainable 与接口族无关**：defense(target) 仍是 v0.2 被训练对象，policy(red) v0.1=自进化红队；两者都是生成族，可训练与否是训练层的事，不改变接口族。
+- 下载/缓存/覆盖优先级沿用：ModelScope 断点续传（`config.json` 存在且无 `*.incomplete`）、`ALIGN_MODEL_DIR`（byted 指向已有 `/mnt/.../models` 复用）、环境变量 > `models.yaml` > 默认。
+
+**env 与模型的映射**：env 内 `red → LLMBackend(policy)`，`target(受害者) → LLMBackend(defense)`，`reward → Verifier(guard)`。攻击方法(T1.2+)在此之上实现，不再耦合某具体模型。
 
 ## 4. 已核对的真实接口（OpenEnv 0.10.0）
 
@@ -82,12 +85,13 @@ envs/red_blue_env/
   openenv.yaml   reward range [0,1] 等
 ```
 
-三个角色全注入式（DI），env 与算法解耦：
+两个接口族全注入式（DI），env 与算法解耦：
 ```python
-target = injectable(LLM)   # 受害者；默认 mock，可换 vLLM base_url
-guard  = injectable(LLM|rule)  # 奖励来源，冻结
+target = injectable(LLMBackend)  # victim/blue；默认 mock，可换多后端(OpenAI/Vendor/自托管)
+guard  = injectable(Verifier)    # 奖励来源，固定后端，判出发 verdict+reward
 red    = injectable(policy|evolver|human)  # v0.1 = 自进化红队
 ```
+> LLMBackend 自动套 指数退避重试 + 预算管理 中间件（§3.5）。
 
 ## 6. 验收标准（v0.1）
 

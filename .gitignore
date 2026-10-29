@@ -23,3 +23,5 @@ uv.lock.swp
 .DS_Store
 .idea/
 .vscode/
+# 运行时 trace 输出
+output/

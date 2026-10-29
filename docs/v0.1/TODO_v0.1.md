@@ -15,6 +15,7 @@
 | T1.5 | 自进化红队：攻击库 → 打 defense → guard → reward 回填改写 | P0 | 30 轮采集，攻破率随世代上升 | — |
 | T1.6 | CLI：`alignment-env serve/redrun/ui`（models 已就绪，扩展之） | P1 | 命令可复现 | — |
 | T1.7 | Gradio 控制面（launch/train/monitor 三页） | P1 | 面板可看进度/回放/曲线 | — |
+| T1.9 | **可观测层**：`TraceSink`(schema+emit@reset/step, JSON-lines) → `TraceReader`(聚合攻破率/延迟/token) → monitor 页消费 | P1 | mock 干跑也能落 trace 并被面板读出；DESIGN_observability.md | ⏳ 未开始（随 T1.2 落地 ①，②③ 后置） |
 | T1.8 | COOKBOOK（首次上手 + 代理地雷）+ REPORT（M1–M4） | P1 | 可复现 | — |
 
 ## 依赖

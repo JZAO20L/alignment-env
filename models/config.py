@@ -1,8 +1,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""模型层配置：guard / attack / defense 三角色。
+"""模型层配置：guard / attack / defense（两接口族映射）。
 
-defense（防御/受害者）是唯一 trainable 角色，用户可通过 models.yaml 或环境变量覆盖；
-guard / attack 默认固定（冻结），作为评估与攻击注入者。
+两接口族（用户 2026-10-28 定稿）：
+  guard   -> Verifier   （判罚/reward，固定、单一后端）
+  attack  -> LLMBackend （red/policy 攻击方，可插拔多后端）
+  defense -> LLMBackend （target/blue 受害者，唯一 trainable，v0.2 训练对象）
+Role 枚举保留 guard/attack/defense 以兼容 models.yaml 与 CLI；装配时在 factory 映射为两族。
 """
 
 from __future__ import annotations
@@ -20,11 +23,11 @@ Role = Literal["guard", "attack", "defense"]
 # 默认 ModelScope repo id（与 jailbreak 一致：guard 用 Qwen3Guard，defense 用 Qwen3-4B）
 DEFAULT_SPECS: dict[Role, dict] = {
     "guard":   {"model": "Qwen/Qwen3Guard-Gen-4B", "trainable": False,
-                "description": "评估/奖励来源，冻结"},
+                "description": "Verifier：判罚/reward 来源，冻结，固定后端"},
     "attack":  {"model": "Qwen/Qwen3-4B",          "trainable": False,
-                "description": "红队攻击生成，冻结"},
+                "description": "LLMBackend(red/policy)：攻击生成，可插拔多后端"},
     "defense": {"model": "Qwen/Qwen3-4B",          "trainable": True,
-                "description": "防御/受害者，待训练，用户可改"},
+                "description": "LLMBackend(target/blue)：受害者，待训练，用户可改"},
 }
 
 # 环境变量覆盖：ALIGN_<ROLE>_MODEL
